@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "rubik-solver-frontend": "file:.."
+  }
+}

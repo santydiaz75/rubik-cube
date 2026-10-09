@@ -1,0 +1,298 @@
+openapi: 3.1.0
+info:
+  title: Rubik Solver MVP API
+  version: 1.0.0
+  description: >
+    Contrato HTTP inicial para registrar jugadores, crear partidas de resolución,
+    persistir movimientos y reproducir la solución paso a paso.
+servers:
+  - url: http://localhost:8000
+paths:
+  /users/{username}:
+    put:
+      summary: Crea o actualiza un jugador por username
+      operationId: upsertUser
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpsertRequest'
+      responses:
+        '200':
+          description: Jugador reutilizado o actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '201':
+          description: Jugador creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /games:
+    post:
+      summary: Crea una partida y solicita la resolución del cubo
+      operationId: createGame
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameRequest'
+      responses:
+        '201':
+          description: Partida creada y resolución disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameCreationResponse'
+        '400':
+          description: Cubo inválido o usuario inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Cubo físicamente irresoluble
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /games/{gameId}:
+    get:
+      summary: Obtiene el resumen de una partida
+      operationId: getGame
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resumen de la partida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameSummary'
+        '404':
+          description: Partida no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /games/{gameId}/steps:
+    get:
+      summary: Obtiene todos los pasos ordenados de la solución
+      operationId: listSolutionSteps
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pasos de solución ordenados
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [gameId, totalMoves, steps]
+                properties:
+                  gameId:
+                    type: string
+                  totalMoves:
+                    type: integer
+                    minimum: 0
+                  steps:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SolutionStep'
+        '404':
+          description: Partida no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /games/{gameId}/steps/{movement}:
+    get:
+      summary: Obtiene un paso concreto de la solución
+      operationId: getSolutionStep
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: movement
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Paso de solución solicitado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolutionStep'
+        '404':
+          description: Paso o partida no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    UserUpsertRequest:
+      type: object
+      additionalProperties: false
+      required: [fullname]
+      properties:
+        fullname:
+          type: string
+          minLength: 1
+    UserResponse:
+      type: object
+      required: [userId, username, fullname, score]
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        fullname:
+          type: string
+        score:
+          type: integer
+          minimum: 0
+    CreateGameRequest:
+      type: object
+      additionalProperties: false
+      required: [userId, cube]
+      properties:
+        userId:
+          type: string
+        cube:
+          $ref: '#/components/schemas/CubeState'
+    GameCreationResponse:
+      type: object
+      required: [game, totalMoves, steps]
+      properties:
+        game:
+          $ref: '#/components/schemas/GameSummary'
+        totalMoves:
+          type: integer
+          minimum: 0
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/SolutionStep'
+    GameSummary:
+      type: object
+      required: [idGame, userId, idCube, status, score, currentStep, createdAt]
+      properties:
+        idGame:
+          type: string
+        userId:
+          type: string
+        idCube:
+          type: string
+        status:
+          type: string
+          enum: [created, solving, completed, failed]
+        score:
+          type: integer
+          minimum: 0
+        currentStep:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        errorMessage:
+          type: string
+          nullable: true
+    SolutionStep:
+      type: object
+      required: [idGame, idCube, movement, notation, cubeState]
+      properties:
+        idGame:
+          type: string
+        idCube:
+          type: string
+        movement:
+          type: integer
+          minimum: 1
+        notation:
+          type: string
+        cubeState:
+          $ref: '#/components/schemas/CubeState'
+    CubeState:
+      type: object
+      additionalProperties: false
+      required: [cubeId, status, faces]
+      properties:
+        cubeId:
+          type: string
+        status:
+          type: string
+          enum: [in-progress, solved]
+        faces:
+          type: object
+          additionalProperties: false
+          required: [u, d, f, b, l, r]
+          properties:
+            u:
+              $ref: '#/components/schemas/Face'
+            d:
+              $ref: '#/components/schemas/Face'
+            f:
+              $ref: '#/components/schemas/Face'
+            b:
+              $ref: '#/components/schemas/Face'
+            l:
+              $ref: '#/components/schemas/Face'
+            r:
+              $ref: '#/components/schemas/Face'
+    Face:
+      type: array
+      minItems: 9
+      maxItems: 9
+      items:
+        type: string
+        enum: [white, yellow, green, blue, orange, red]
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              face:
+                type: string
+              index:
+                type: integer
+              issue:
+                type: string

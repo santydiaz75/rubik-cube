@@ -218,3 +218,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/.vite/
+
+# Shared app env and logs
+.env*
+*.tmp
+*.swp
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/
